@@ -14,7 +14,36 @@ username = get_user_model()
 def index(request):
     return render(request, 'index.html')
 
+@login_required(login_url="signin")
+def settings(request):
+    user_profile=UserProfile.objects.get(user=request.user)
+    if request.method == 'POST':
+        if request.FILES.get('image')==None:
+            email=user_profile.POST['email']
+            image=user_profile.profileimg
+            bio=request.POST['bio']
+            location=request.POST['location']
 
+            user_profile.profileimg=image
+            user_profile.email=email
+            user_profile.bio=bio
+            user_profile.location=location
+            user_profile.save()
+        if request.FILES.get('image') !=None:
+            image=request.FILES.get('image')
+            email=request.POST['email']
+            bio=request.POST['bio']
+            location=request.POST['location']
+            
+            user_profile.profileimg=image
+            user_profile.email=email
+            user_profile.bio=bio
+            user_profile.location=location
+            user_profile.save()
+
+        return redirect('settings')
+        
+    return render(request,'setting.html' ,{'user_profile':user_profile})
 
 def signup(request):
     if request.method == "POST":
@@ -61,7 +90,7 @@ def signup(request):
             login(request, user)
 
             messages.success(request, "Sign-up successful! You are now logged in.")
-            return redirect('index')  # Redirect to a user dashboard or home page
+            return redirect('settings')  # Redirect to a user dashboard or home page
 
         except Exception as e:
             messages.error(request, f"An error occurred: {str(e)}")
