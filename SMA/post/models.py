@@ -8,7 +8,7 @@ User = get_user_model()
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     bio = models.TextField(blank=True)
-    profileimg = models.ImageField(upload_to='profile_images', default='nRosan.jpg')
+    profileimg = models.ImageField(upload_to='profile_images', default='user_icon.png')
     location = models.CharField(max_length=100, blank=True)
     email=models.EmailField(blank=True, max_length=254)
 
@@ -25,6 +25,21 @@ class Post(models.Model):
     created_at=models.DateTimeField(default=datetime.now)
     no_of_likes=models.IntegerField(default=0)
 
+
+    def __str__(self):
+        return self.user
+    
+class LikePost(models.Model):
+    post_id=models.CharField(max_length=500)
+    username=models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.username
+    
+class FollowerCount(models.Model):
+    follower=models.CharField(max_length=100)
+    user=models.CharField(max_length=100)
+    
 
     def __str__(self):
         return self.user
