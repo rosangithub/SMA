@@ -3,6 +3,8 @@ from django.contrib.auth import get_user_model, authenticate, login, logout as a
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
+from itertools import chain
+import random
 
 
 from .models import UserProfile ,Post,LikePost,FollowerCount
@@ -11,13 +13,51 @@ from .models import UserProfile ,Post,LikePost,FollowerCount
 username = get_user_model()
 
 # Index view
-@login_required(login_url='signin')
 def index(request):
-    user_object=User.objects.get(username=request.user.username)
-    user_profile, created = UserProfile.objects.get_or_create(user=user_object)
-    # user_profile=UserProfile.objects.get(user=user_object)
-    posts=Post.objects.all()
-    return render(request, 'index.html',{'user_profile':user_profile,'posts':posts})
+    user_object = User.objects.get(username=request.user.username)
+    user_profile = UserProfile.objects.get(user=user_object)
+
+    user_following_list = []
+    feed = []
+
+    user_following = FollowerCount.objects.filter(follower=request.user.username)
+
+    for users in user_following:
+        user_following_list.append(users.user)
+
+    for usernames in user_following_list:
+        feed_lists = Post.objects.filter(user=usernames)
+        feed.append(feed_lists)
+
+    feed_list = list(chain(*feed))
+
+    # user suggestion starts
+    all_users = User.objects.all()
+    user_following_all = []
+
+    for user in user_following:
+        user_list = User.objects.get(username=user.user)
+        user_following_all.append(user_list)
+    
+    new_suggestions_list = [x for x in list(all_users) if (x not in list(user_following_all))]
+    current_user = User.objects.filter(username=request.user.username)
+    final_suggestions_list = [x for x in list(new_suggestions_list) if ( x not in list(current_user))]
+    random.shuffle(final_suggestions_list)
+
+    username_profile = []
+    username_profile_list = []
+
+    for users in final_suggestions_list:
+        username_profile.append(users.id)
+
+    for ids in username_profile:
+        profile_lists = UserProfile.objects.filter(id_user=ids)
+        username_profile_list.append(profile_lists)
+
+    suggestions_username_profile_list = list(chain(*username_profile_list))
+
+
+    return render(request, 'index.html', {'user_profile': user_profile, 'posts':feed_list, 'suggestions_username_profile_list': suggestions_username_profile_list[:4]})
 
 @login_required(login_url='signin')
 def upload(request):
@@ -31,6 +71,31 @@ def upload(request):
     else:
         return redirect('/')
     return HttpResponse('<h1> Upload View</h1>')
+
+
+    user_object = User.objects.get(username=request.user.username)
+    user_profile = UserProfile.objects.get(user=user_object)
+
+
+    username_profile_list = []
+    if request.method == 'POST':
+        username = request.POST['username']
+        username_object = User.objects.filter(username__icontains=username)
+
+        username_profile = []
+        username_profile_list = []
+
+        for users in username_object:
+            username_profile.append(users.id)
+
+        for ids in username_profile:
+            profile_lists = UserProfile.objects.filter(id_user=ids)
+            username_profile_list.append(profile_lists)
+        
+        username_profile_list = list(chain(*username_profile_list))
+        print(f"Final Profile List: {username_profile_list}")
+
+    return render(request, 'search.html', {'user_profile': user_profile, 'username_profile_list': username_profile_list})
 
 @login_required(login_url='signin')
 def like_post(request):
@@ -201,3 +266,84 @@ def signin(request):
 def logout(request):
     auth_logout(request)
     return redirect('signin')
+
+
+@login_required(login_url='signin')
+def search(request):
+    user_object = User.objects.get(username=request.user.username)
+    user_profile = UserProfile.objects.get(user=user_object)
+
+    # Initialize the username_profile_list to avoid UnboundLocalError
+    username_profile_list = []
+
+    if request.method == 'POST':
+        username = request.POST['username']
+        username_object = User.objects.filter(username__icontains=username)
+
+        username_profile = []
+        username_profile_list = []
+
+        for users in username_object:
+            username_profile.append(users.id)
+
+        for ids in username_profile:
+            # Corrected the field name to user_id
+            profile_lists = UserProfile.objects.filter(user_id=ids)
+            # Use extend instead of append to avoid nested lists
+            username_profile_list.extend(profile_lists)
+
+        # No need for list(chain(*username_profile_list)) since extend was used
+        print(f"Final Profile List: {username_profile_list}")
+
+    return render(request, 'search.html', {'user_profile': user_profile, 'username_profile_list': username_profile_list})
+
+
+@login_required(login_url='signin')
+def index(request):
+    user_object = User.objects.get(username=request.user.username)
+    user_profile = UserProfile.objects.get(user=user_object)
+
+    user_following_list = []
+    feed = []
+
+    user_following = FollowerCount.objects.filter(follower=request.user.username)
+
+    for users in user_following:
+        user_following_list.append(users.user)
+
+    for usernames in user_following_list:
+        feed_lists = Post.objects.filter(user=usernames)
+        feed.append(feed_lists)
+
+    feed_list = list(chain(*feed))
+
+    # user suggestion starts
+    all_users = User.objects.all()
+    user_following_all = []
+
+    for user in user_following:
+        user_list = User.objects.get(username=user.user)
+        user_following_all.append(user_list)
+
+    # Ensure we are excluding followed users and the current user
+    new_suggestions_list = [x for x in all_users if x not in user_following_all and x != request.user]
+    random.shuffle(new_suggestions_list)
+
+    username_profile_list = []
+
+    for users in new_suggestions_list:
+        # Update this to use the correct field for filtering the profile
+        profile_lists =UserProfile.objects.filter(user=users)
+        username_profile_list.append(profile_lists)
+
+    # Flatten the list of profiles
+    suggestions_username_profile_list = list(chain(*username_profile_list))
+
+    # Debugging: Check if suggestions list is being populated
+    print(f"Suggestions List: {suggestions_username_profile_list[:4]}")
+
+    return render(request, 'index.html', {
+        'user_profile': user_profile,
+        'posts': feed_list,
+        'suggestions_username_profile_list': suggestions_username_profile_list[:4]
+    })
